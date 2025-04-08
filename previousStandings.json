@@ -1,0 +1,9 @@
+[
+    { "name": "Kaleb", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Clay", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Chris", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Pat", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Tyler", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Zack", "wins": 0, "losses": 0, "winPercentage": 0 },
+    { "name": "Terry", "wins": 0, "losses": 0, "winPercentage": 0 }
+]
