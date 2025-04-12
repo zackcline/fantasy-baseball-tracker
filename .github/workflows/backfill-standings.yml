@@ -1,0 +1,42 @@
+# Workflow to backfill historical standings from March 27, 2025
+name: Backfill Standings
+
+# Triggers for the workflow
+on:
+  # Manual trigger only
+  workflow_dispatch:
+
+# Jobs to execute
+jobs:
+  backfill-standings:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Run backfill-standings.js
+      - name: Run backfill script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node backfill-standings.js
+
+      # Commit and push files
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add .
+          git commit -m "Backfill standings from 2025-03-27 to 2025-04-12" || echo "No changes to commit"
+          git push
