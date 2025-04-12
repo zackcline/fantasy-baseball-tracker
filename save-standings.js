@@ -54,14 +54,29 @@ function mapTeamName(apiName) {
     return nameMap[apiName] || null;
 }
 
+// Fetch with retry
+async function fetchWithRetry(url, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) return response;
+            console.warn(`Fetch attempt ${i + 1} failed: Status ${response.status}`);
+        } catch (error) {
+            console.warn(`Fetch attempt ${i + 1} error: ${error.message}`);
+        }
+        if (i < retries - 1) await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
+}
+
 // Fetch and save standings
 async function saveStandings() {
     try {
+        const today = new Date();
+        console.log(`Running save-standings.js on ${today.toUTCString()}, UTC day: ${today.getUTCDay()}`);
+
         // Fetch MLB data
-        const response = await fetch('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        const response = await fetchWithRetry('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
         const data = await response.json();
 
         if (!data.records || !Array.isArray(data.records)) {
@@ -108,7 +123,6 @@ async function saveStandings() {
         }));
 
         // Generate daily filename
-        const today = new Date();
         const year = today.getUTCFullYear();
         const month = String(today.getUTCMonth() + 1).padStart(2, '0');
         const day = String(today.getUTCDate()).padStart(2, '0');
@@ -116,13 +130,17 @@ async function saveStandings() {
         const dailyFile = `standings-${dateStr}.json`;
 
         // Save daily standings
-        fs.writeFileSync(path.join(dailyStandingsDir, dailyFile), JSON.stringify(rankedStandings, null, 2));
-        console.log(`Saved DailyStandings/${dailyFile}`);
+        const dailyPath = path.join(dailyStandingsDir, dailyFile);
+        fs.writeFileSync(dailyPath, JSON.stringify(rankedStandings, null, 2));
+        console.log(`Saved ${dailyPath}`);
 
         // Save previousStandings.json on Sundays
         if (today.getUTCDay() === 0) {
-            fs.writeFileSync(path.join(__dirname, 'previousStandings.json'), JSON.stringify(rankedStandings, null, 2));
-            console.log('Updated previousStandings.json');
+            const prevPath = path.join(__dirname, 'previousStandings.json');
+            fs.writeFileSync(prevPath, JSON.stringify(rankedStandings, null, 2));
+            console.log(`Updated ${prevPath}`);
+        } else {
+            console.log('Not Sunday, skipping previousStandings.json update');
         }
     } catch (error) {
         console.error('Error saving standings:', error.message);
