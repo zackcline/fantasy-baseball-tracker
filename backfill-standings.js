@@ -2,6 +2,12 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
+// Ensure DailyStandings folder exists
+const dailyStandingsDir = path.join(__dirname, 'DailyStandings');
+if (!fs.existsSync(dailyStandingsDir)) {
+    fs.mkdirSync(dailyStandingsDir);
+}
+
 // Player data (same as script.js)
 const players = [
     { name: "Kaleb", teams: ["Dodgers", "Twins", "Brewers", "Marlins"] },
@@ -142,9 +148,9 @@ async function backfillStandings() {
         console.log(`Processing ${dateStr}...`);
         const standings = await calculateStandingsForDate(dateStr);
         if (standings) {
-            const filePath = path.join(__dirname, `standings-${dateStr}.json`);
+            const filePath = path.join(dailyStandingsDir, `standings-${dateStr}.json`);
             fs.writeFileSync(filePath, JSON.stringify(standings, null, 2));
-            console.log(`Saved standings-${dateStr}.json`);
+            console.log(`Saved DailyStandings/standings-${dateStr}.json`);
         } else {
             console.log(`Skipped ${dateStr} due to error`);
         }
