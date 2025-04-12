@@ -1,4 +1,4 @@
-const axios = require('axios');
+const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -51,15 +51,20 @@ function mapTeamName(apiName) {
 // Fetch and save standings
 async function saveStandings() {
     try {
-        // Fetch MLB data directly (no proxy needed, confirmed working)
-        const response = await axios.get('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
-        if (!response.data.records || !Array.isArray(response.data.records)) {
+        // Fetch MLB data using node-fetch
+        const response = await fetch('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        if (!data.records || !Array.isArray(data.records)) {
             throw new Error('Invalid MLB API response');
         }
 
         // Process team data
         const teamData = {};
-        response.data.records.forEach(division => {
+        data.records.forEach(division => {
             if (division.teamRecords && Array.isArray(division.teamRecords)) {
                 division.teamRecords.forEach(team => {
                     const mappedName = mapTeamName(team.team.name);
