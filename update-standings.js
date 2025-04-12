@@ -73,15 +73,13 @@ async function updateStandings() {
     const teamData = await fetchMLBData();
     if (!teamData) {
         console.error('Failed to fetch MLB data. Using default standings.');
-        return [
-            { name: "Kaleb", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Clay", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Chris", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Pat", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Tyler", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Zack", wins: 0, losses: 0, winPercentage: 0 },
-            { name: "Terry", wins: 0, losses: 0, winPercentage: 0 }
-        ];
+        return players.map(player => ({
+            name: player.name,
+            wins: 0,
+            losses: 0,
+            winPercentage: "0.000",
+            rank: 0
+        }));
     }
 
     let standings = [];
@@ -98,7 +96,7 @@ async function updateStandings() {
             totalLosses += losses;
         });
 
-        const winPercentage = totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)).toFixed(3) : 0;
+        const winPercentage = totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)).toFixed(3) : "0.000";
         standings.push({
             name: player.name,
             wins: totalWins,
@@ -108,7 +106,15 @@ async function updateStandings() {
     });
 
     standings.sort((a, b) => parseFloat(b.winPercentage) - parseFloat(a.winPercentage));
-    return standings;
+    const rankedStandings = standings.map((player, index) => ({
+        name: player.name,
+        wins: player.wins,
+        losses: player.losses,
+        winPercentage: player.winPercentage,
+        rank: index + 1
+    }));
+
+    return rankedStandings;
 }
 
 (async () => {
