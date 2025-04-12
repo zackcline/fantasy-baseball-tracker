@@ -13,7 +13,7 @@ const players = [
     { name: "Terry", teams: ["Red Sox", "Diamondbacks", "Reds", "Giants"] }
 ];
 
-// Map API team names to our format (same as script.js)
+// Map API team names to our format
 function mapTeamName(apiName) {
     const nameMap = {
         "Los Angeles Dodgers": "Dodgers",
@@ -51,7 +51,7 @@ function mapTeamName(apiName) {
 // Fetch and save standings
 async function saveStandings() {
     try {
-        // Fetch MLB data using node-fetch
+        // Fetch MLB data
         const response = await fetch('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -101,19 +101,23 @@ async function saveStandings() {
             rank: index + 1
         }));
 
-        // Generate filename based on current date (e.g., standings-2025-04-13.json)
+        // Generate daily filename
         const today = new Date();
         const year = today.getUTCFullYear();
         const month = String(today.getUTCMonth() + 1).padStart(2, '0');
         const day = String(today.getUTCDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
-        const weeklyFile = `standings-${dateStr}.json`;
+        const dailyFile = `standings-${dateStr}.json`;
 
-        // Save weekly standings and update previousStandings.json
-        fs.writeFileSync(path.join(__dirname, weeklyFile), JSON.stringify(rankedStandings, null, 2));
-        fs.writeFileSync(path.join(__dirname, 'previousStandings.json'), JSON.stringify(rankedStandings, null, 2));
+        // Save daily standings
+        fs.writeFileSync(path.join(__dirname, dailyFile), JSON.stringify(rankedStandings, null, 2));
+        console.log(`Saved ${dailyFile}`);
 
-        console.log(`Saved ${weeklyFile} and updated previousStandings.json`);
+        // Save previousStandings.json on Sundays
+        if (today.getUTCDay() === 0) {
+            fs.writeFileSync(path.join(__dirname, 'previousStandings.json'), JSON.stringify(rankedStandings, null, 2));
+            console.log('Updated previousStandings.json');
+        }
     } catch (error) {
         console.error('Error saving standings:', error.message);
         process.exit(1);
