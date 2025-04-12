@@ -1,38 +1,40 @@
-# Workflow to save fantasy baseball standings every Sunday
+# Workflow to automatically save fantasy baseball standings every Sunday
 name: Save Weekly Standings
 
-# Triggers: Run every Sunday at 00:01 UTC, or manually via GitHub UI
+# Triggers for the workflow
 on:
+  # Run every Sunday at 00:01 UTC to capture the previous week's games (Sunday–Saturday)
   schedule:
-    - cron: '1 0 * * 0' # Sunday 00:01 UTC, aligns with previousStandings.json update
-  workflow_dispatch: # Allows manual triggering for testing
+    - cron: '1 0 * * 0'
+  # Allow manual triggering from the GitHub Actions UI for testing
+  workflow_dispatch:
 
-# Jobs to execute
+# Jobs to execute in the workflow
 jobs:
   save-standings:
-    # Run on the latest Ubuntu environment for compatibility
+    # Use the latest Ubuntu environment for compatibility and performance
     runs-on: ubuntu-latest
 
-    # Steps to perform
+    # Steps to perform in the job
     steps:
-      # Check out the repository code to access script.js, players, etc.
+      # Check out the repository to access save-standings.js and other files
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Set up Node.js environment to run save-standings.js
+      # Set up Node.js to run save-standings.js, which uses node-fetch
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16' # Reliable version for axios and fs
+          node-version: '16' # Compatible with node-fetch@2.6.1
 
-      # Install dependencies (axios for API calls)
+      # Install dependencies from package.json (node-fetch)
       - name: Install dependencies
-        run: npm install axios
+        run: npm install
 
-      # Run save-standings.js to fetch MLB data and save standings
+      # Execute save-standings.js to fetch MLB data and save standings
       - name: Run save standings script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # For repository access
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Grants access to push changes
         run: node save-standings.js
 
       # Commit and push the new standings file (e.g., standings-2025-04-13.json)
@@ -41,5 +43,5 @@ jobs:
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
           git add .
-          git commit -m "Save standings for $(date -u +%Y-%m-%d)"
+          git commit -m "Save standings for $(date -u +%Y-%m-%d)" || echo "No changes to commit"
           git push
