@@ -54,57 +54,117 @@ function mapTeamName(apiName) {
     return nameMap[apiName] || null;
 }
 
-// Calculate standings up to a specific date
-async function calculateStandingsForDate(endDateStr) {
+// Fetch with retry
+async function fetchWithRetry(url, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) return response;
+            console.warn(`Fetch attempt ${i + 1} failed: Status ${response.status}`);
+        } catch (error) {
+            console.warn(`Fetch attempt ${i + 1} error: ${error.message}`);
+        }
+        if (i < retries - 1) await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    throw new Error(`Failed to fetch ${url} after ${retries} attempts`);
+}
+
+// Calculate standings for a specific date
+async function calculateStandingsForDate(dateStr) {
     try {
-        // Initialize team data
-        const teamData = {};
-        players.forEach(player => {
-            player.teams.forEach(team => {
-                teamData[team] = { wins: 0, losses: 0 };
-            });
-        });
+        // Try standings API first
+        const standingsUrl = `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&date=${dateStr}`;
+        let teamData = {};
+        let usedStandingsApi = true;
 
-        let gameCount = 0;
-        console.log(`Fetching games for ${endDateStr}...`);
+        try {
+            const response = await fetchWithRetry(standingsUrl);
+            const data = await response.json();
 
-        // Process games from season start to endDate
-        const startDate = new Date('2025-03-27');
-        const endDate = new Date(endDateStr);
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-            const response = await fetch(`https://statsapi.mlb.com/api/v1/schedule?date=${date}&sportId=1`);
-            if (!response.ok) {
-                console.warn(`HTTP error for ${date}: Status ${response.status}`);
-                continue;
+            if (data.records && Array.isArray(data.records)) {
+                data.records.forEach(division => {
+                    if (division.teamRecords && Array.isArray(division.teamRecords)) {
+                        division.teamRecords.forEach(team => {
+                            const mappedName = mapTeamName(team.team.name);
+                            if (mappedName) {
+                                teamData[mappedName] = { wins: team.wins || 0, losses: team.losses || 0 };
+                            }
+                        });
+                    }
+                });
             }
-            const dayData = await response.json();
+        } catch (error) {
+            console.warn(`Standings API failed for ${dateStr}: ${error.message}, falling back to schedule API`);
+            usedStandingsApi = false;
+        }
 
-            if (dayData.dates && dayData.dates[0] && dayData.dates[0].games) {
-                for (const game of dayData.dates[0].games) {
-                    if (game.status.abstractGameCode === 'F') { // Final games
-                        const homeTeam = mapTeamName(game.teams.home.team.name);
-                        const awayTeam = mapTeamName(game.teams.away.team.name);
-                        const homeScore = game.teams.home.score;
-                        const awayScore = game.teams.away.score;
+        // Fallback to schedule API
+        if (Object.keys(teamData).length === 0) {
+            players.forEach(player => {
+                player.teams.forEach(team => {
+                    teamData[team] = { wins: 0, losses: 0 };
+                });
+            });
 
-                        if (homeTeam && awayTeam && homeScore !== undefined && awayScore !== undefined) {
-                            gameCount++;
-                            console.log(`Game ${gameCount} on ${date}: ${homeTeam} (${homeScore}) vs ${awayTeam} (${awayScore})`);
-                            if (homeScore > awayScore) {
-                                if (teamData[homeTeam]) teamData[homeTeam].wins = (teamData[homeTeam].wins || 0) + 1;
-                                if (teamData[awayTeam]) teamData[awayTeam].losses = (teamData[awayTeam].losses || 0) + 1;
-                            } else if (awayScore > homeScore) {
-                                if (teamData[awayTeam]) teamData[awayTeam].wins = (teamData[awayTeam].wins || 0) + 1;
-                                if (teamData[homeTeam]) teamData[homeTeam].losses = (teamData[homeTeam].losses || 0) + 1;
+            const processedGames = new Set();
+            let gameCount = 0;
+            const startDate = new Date('2025-03-27');
+            const endDate = new Date(dateStr);
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+                const scheduleUrl = `https://statsapi.mlb.com/api/v1/schedule?date=${date}&sportId=1&gameType=R`;
+                const response = await fetchWithRetry(scheduleUrl);
+                const dayData = await response.json();
+
+                if (dayData.dates && dayData.dates[0] && dayData.dates[0].games) {
+                    for (const game of dayData.dates[0].games) {
+                        if (
+                            game.status.detailedState === 'Final' &&
+                            game.gameType === 'R' &&
+                            !processedGames.has(game.gamePk)
+                        ) {
+                            processedGames.add(game.gamePk);
+                            const homeTeam = mapTeamName(game.teams.home.team.name);
+                            const awayTeam = mapTeamName(game.teams.away.team.name);
+                            const homeScore = game.teams.home.score;
+                            const awayScore = game.teams.away.score;
+
+                            if (
+                                (teamData[homeTeam] || teamData[awayTeam]) &&
+                                typeof homeScore === 'number' &&
+                                typeof awayScore === 'number'
+                            ) {
+                                gameCount++;
+                                console.log(`Game ${gameCount} on ${date}: ${homeTeam} (${homeScore}) vs ${awayTeam} (${awayScore})`);
+                                if (homeScore > awayScore) {
+                                    if (teamData[homeTeam]) teamData[homeTeam].wins += 1;
+                                    if (teamData[awayTeam]) teamData[awayTeam].losses += 1;
+                                } else if (awayScore > homeScore) {
+                                    if (teamData[awayTeam]) teamData[awayTeam].wins += 1;
+                                    if (teamData[homeTeam]) teamData[homeTeam].losses += 1;
+                                }
                             }
                         }
                     }
                 }
             }
+
+            console.log(`Processed ${gameCount} games for ${dateStr}`);
+            if (gameCount > 100) {
+                console.warn(`⚠️ High game count: ${gameCount}`);
+            }
         }
 
-        console.log(`Processed ${gameCount} games for ${endDateStr}`);
+        // Validate team totals
+        console.log(`Team totals for ${dateStr}:`);
+        Object.keys(teamData).forEach(team => {
+            const totalGames = teamData[team].wins + teamData[team].losses;
+            console.log(`  ${team}: ${teamData[team].wins}W-${teamData[team].losses}L (${totalGames} games)`);
+            if (totalGames > 15 && dateStr === '2025-04-12') {
+                console.warn(`⚠️ High game count for ${team}: ${totalGames}`);
+            }
+        });
 
         // Calculate player standings
         const standings = players.map(player => {
@@ -129,44 +189,7 @@ async function calculateStandingsForDate(endDateStr) {
         }));
 
         // Log player totals
-        console.log(`Standings for ${endDateStr}:`);
+        console.log(`Player standings for ${dateStr} (Standings API: ${usedStandingsApi}):`);
         rankedStandings.forEach(player => {
             console.log(`  ${player.name}: ${player.wins}W-${player.losses}L`);
         });
-
-        return rankedStandings;
-    } catch (error) {
-        console.error(`Error calculating standings for ${endDateStr}:`, error.message);
-        return null;
-    }
-}
-
-// Backfill standings from March 27 to April 12
-async function backfillStandings() {
-    const startDate = new Date('2025-03-27');
-    const endDate = new Date('2025-04-12');
-    const dates = [];
-
-    // Generate date strings
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const year = d.getUTCFullYear();
-        const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(d.getUTCDate()).padStart(2, '0');
-        dates.push(`${year}-${month}-${day}`);
-    }
-
-    // Process each date
-    for (const dateStr of dates) {
-        console.log(`Processing ${dateStr}...`);
-        const standings = await calculateStandingsForDate(dateStr);
-        if (standings) {
-            const filePath = path.join(dailyStandingsDir, `standings-${dateStr}.json`);
-            fs.writeFileSync(filePath, JSON.stringify(standings, null, 2));
-            console.log(`Saved DailyStandings/standings-${dateStr}.json`);
-        } else {
-            console.log(`Skipped ${dateStr} due to error`);
-        }
-    }
-}
-
-backfillStandings();
