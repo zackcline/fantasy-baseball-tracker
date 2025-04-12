@@ -65,6 +65,9 @@ async function calculateStandingsForDate(endDateStr) {
             });
         });
 
+        let gameCount = 0;
+        console.log(`Fetching games for ${endDateStr}...`);
+
         // Process games from season start to endDate
         const startDate = new Date('2025-03-27');
         const endDate = new Date(endDateStr);
@@ -78,7 +81,7 @@ async function calculateStandingsForDate(endDateStr) {
             const dayData = await response.json();
 
             if (dayData.dates && dayData.dates[0] && dayData.dates[0].games) {
-                dayData.dates[0].games.forEach(game => {
+                for (const game of dayData.dates[0].games) {
                     if (game.status.abstractGameCode === 'F') { // Final games
                         const homeTeam = mapTeamName(game.teams.home.team.name);
                         const awayTeam = mapTeamName(game.teams.away.team.name);
@@ -86,18 +89,22 @@ async function calculateStandingsForDate(endDateStr) {
                         const awayScore = game.teams.away.score;
 
                         if (homeTeam && awayTeam && homeScore !== undefined && awayScore !== undefined) {
+                            gameCount++;
+                            console.log(`Game ${gameCount} on ${date}: ${homeTeam} (${homeScore}) vs ${awayTeam} (${awayScore})`);
                             if (homeScore > awayScore) {
-                                if (teamData[homeTeam]) teamData[homeTeam].wins += 1;
-                                if (teamData[awayTeam]) teamData[awayTeam].losses += 1;
+                                if (teamData[homeTeam]) teamData[homeTeam].wins = (teamData[homeTeam].wins || 0) + 1;
+                                if (teamData[awayTeam]) teamData[awayTeam].losses = (teamData[awayTeam].losses || 0) + 1;
                             } else if (awayScore > homeScore) {
-                                if (teamData[awayTeam]) teamData[awayTeam].wins += 1;
-                                if (teamData[homeTeam]) teamData[homeTeam].losses += 1;
+                                if (teamData[awayTeam]) teamData[awayTeam].wins = (teamData[awayTeam].wins || 0) + 1;
+                                if (teamData[homeTeam]) teamData[homeTeam].losses = (teamData[homeTeam].losses || 0) + 1;
                             }
                         }
                     }
-                });
+                }
             }
         }
+
+        console.log(`Processed ${gameCount} games for ${endDateStr}`);
 
         // Calculate player standings
         const standings = players.map(player => {
@@ -113,13 +120,21 @@ async function calculateStandingsForDate(endDateStr) {
 
         // Sort and rank
         standings.sort((a, b) => parseFloat(b.winPercentage) - parseFloat(a.winPercentage));
-        return standings.map((player, index) => ({
+        const rankedStandings = standings.map((player, index) => ({
             name: player.name,
             wins: player.wins,
             losses: player.losses,
             winPercentage: player.winPercentage,
             rank: index + 1
         }));
+
+        // Log player totals
+        console.log(`Standings for ${endDateStr}:`);
+        rankedStandings.forEach(player => {
+            console.log(`  ${player.name}: ${player.wins}W-${player.losses}L`);
+        });
+
+        return rankedStandings;
     } catch (error) {
         console.error(`Error calculating standings for ${endDateStr}:`, error.message);
         return null;
