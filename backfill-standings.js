@@ -54,16 +54,9 @@ function mapTeamName(apiName) {
     return nameMap[apiName] || null;
 }
 
-// Calculate standings for a specific date
-async function calculateStandingsForDate(dateStr) {
+// Calculate standings up to a specific date
+async function calculateStandingsForDate(endDateStr) {
     try {
-        // Fetch game schedule for the date
-        const response = await fetch(`https://statsapi.mlb.com/api/v1/schedule?date=${dateStr}&sportId=1`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-
         // Initialize team data
         const teamData = {};
         players.forEach(player => {
@@ -72,13 +65,17 @@ async function calculateStandingsForDate(dateStr) {
             });
         });
 
-        // Process games (cumulative up to dateStr)
+        // Process games from season start to endDate
         const startDate = new Date('2025-03-27');
-        const endDate = new Date(dateStr);
+        const endDate = new Date(endDateStr);
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-            const dayResponse = await fetch(`https://statsapi.mlb.com/api/v1/schedule?date=${date}&sportId=1`);
-            const dayData = await dayResponse.json();
+            const response = await fetch(`https://statsapi.mlb.com/api/v1/schedule?date=${date}&sportId=1`);
+            if (!response.ok) {
+                console.warn(`HTTP error for ${date}: Status ${response.status}`);
+                continue;
+            }
+            const dayData = await response.json();
 
             if (dayData.dates && dayData.dates[0] && dayData.dates[0].games) {
                 dayData.dates[0].games.forEach(game => {
@@ -90,11 +87,11 @@ async function calculateStandingsForDate(dateStr) {
 
                         if (homeTeam && awayTeam && homeScore !== undefined && awayScore !== undefined) {
                             if (homeScore > awayScore) {
-                                if (teamData[homeTeam]) teamData[homeTeam].wins++;
-                                if (teamData[awayTeam]) teamData[awayTeam].losses++;
+                                if (teamData[homeTeam]) teamData[homeTeam].wins += 1;
+                                if (teamData[awayTeam]) teamData[awayTeam].losses += 1;
                             } else if (awayScore > homeScore) {
-                                if (teamData[awayTeam]) teamData[awayTeam].wins++;
-                                if (teamData[homeTeam]) teamData[homeTeam].losses++;
+                                if (teamData[awayTeam]) teamData[awayTeam].wins += 1;
+                                if (teamData[homeTeam]) teamData[homeTeam].losses += 1;
                             }
                         }
                     }
@@ -124,7 +121,7 @@ async function calculateStandingsForDate(dateStr) {
             rank: index + 1
         }));
     } catch (error) {
-        console.error(`Error calculating standings for ${dateStr}:`, error.message);
+        console.error(`Error calculating standings for ${endDateStr}:`, error.message);
         return null;
     }
 }
