@@ -2,9 +2,8 @@
     "name": "fantasy-baseball-tracker",
     "version": "1.0.0",
     "description": "Fantasy Baseball League Tracker",
-    "main": "update-standings.js",
+    "main": "save-standings.js",
     "scripts": {
-        "update-standings": "node update-standings.js",
         "save-standings": "node save-standings.js"
     },
     "dependencies": {
