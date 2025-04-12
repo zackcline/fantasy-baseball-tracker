@@ -1,0 +1,47 @@
+# Workflow to save daily fantasy baseball standings and weekly previousStandings.json
+name: Save Standings
+
+# Triggers for the workflow
+on:
+  # Run every day at 00:05 UTC to capture daily standings
+  schedule:
+    - cron: '5 0 * * *'
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+# Jobs to execute in the workflow
+jobs:
+  save-standings:
+    # Use the latest Ubuntu environment
+    runs-on: ubuntu-latest
+
+    # Steps to perform
+    steps:
+      # Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up Node.js for save-standings.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Compatible with node-fetch@2.6.1
+
+      # Install dependencies (node-fetch)
+      - name: Install dependencies
+        run: npm install
+
+      # Run save-standings.js to save standings
+      - name: Run save standings script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node save-standings.js
+
+      # Commit and push new files
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add .
+          git commit -m "Save standings for $(date -u +%Y-%m-%d)" || echo "No changes to commit"
+          git push
