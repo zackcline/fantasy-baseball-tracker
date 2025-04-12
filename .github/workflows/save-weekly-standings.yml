@@ -1,0 +1,45 @@
+# Workflow to save fantasy baseball standings every Sunday
+name: Save Weekly Standings
+
+# Triggers: Run every Sunday at 00:01 UTC, or manually via GitHub UI
+on:
+  schedule:
+    - cron: '1 0 * * 0' # Sunday 00:01 UTC, aligns with previousStandings.json update
+  workflow_dispatch: # Allows manual triggering for testing
+
+# Jobs to execute
+jobs:
+  save-standings:
+    # Run on the latest Ubuntu environment for compatibility
+    runs-on: ubuntu-latest
+
+    # Steps to perform
+    steps:
+      # Check out the repository code to access script.js, players, etc.
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up Node.js environment to run save-standings.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Reliable version for axios and fs
+
+      # Install dependencies (axios for API calls)
+      - name: Install dependencies
+        run: npm install axios
+
+      # Run save-standings.js to fetch MLB data and save standings
+      - name: Run save standings script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # For repository access
+        run: node save-standings.js
+
+      # Commit and push the new standings file (e.g., standings-2025-04-13.json)
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add .
+          git commit -m "Save standings for $(date -u +%Y-%m-%d)"
+          git push
