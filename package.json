@@ -4,7 +4,8 @@
     "description": "Fantasy Baseball League Tracker",
     "main": "update-standings.js",
     "scripts": {
-        "update-standings": "node update-standings.js"
+        "update-standings": "node update-standings.js",
+        "save-standings": "node save-standings.js"
     },
     "dependencies": {
         "node-fetch": "^2.6.1"
