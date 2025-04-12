@@ -40,11 +40,12 @@ if (fs.existsSync(finalFile)) {
     console.error(`Missing file: standings-${finalDate}.json`);
 }
 
-// Check intermediate files for reasonableness
+// Check intermediate files
 console.log('\nChecking intermediate files...');
 const startDate = new Date('2025-03-27');
 const endDate = new Date('2025-04-12');
 let fileCount = 0;
+let prevStandings = null;
 
 for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
@@ -56,15 +57,20 @@ for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         console.log(`File: standings-${dateStr}.json`);
         standings.forEach(player => {
             const totalGames = player.wins + player.losses;
-            console.log(`  ${player.name}: ${player.wins}W-${player.losses}L (${totalGames} games)`);
-            // Warn if totals seem high (e.g., >60 games by April 12)
-            if (dateStr === '2025-04-12' && totalGames > 60) {
-                console.warn(`  ⚠️ High game count for ${player.name}`);
+            let delta = '';
+            if (prevStandings) {
+                const prevPlayer = prevStandings.find(p => p.name === player.name);
+                if (prevPlayer) {
+                    const deltaGames = totalGames - (prevPlayer.wins + prevPlayer.losses);
+                    delta = ` (+${deltaGames} games)`;
+                    if (deltaGames > 12) {
+                        console.warn(`  ⚠️ High daily increase for ${player.name}: ${deltaGames} games`);
+                    }
+                }
             }
+            console.log(`  ${player.name}: ${player.wins}W-${player.losses}L (${totalGames} games)${delta}`);
         });
+        prevStandings = standings;
     } else {
         console.warn(`Missing file: standings-${dateStr}.json`);
     }
-}
-
-console.log(`\nProcessed ${fileCount} files`);
