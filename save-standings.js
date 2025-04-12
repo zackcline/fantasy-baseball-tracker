@@ -2,21 +2,79 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const players = [/* Same as script.js */];
-function mapTeamName(apiName) {/* Same as script.js */}
+// Player data (same as script.js)
+const players = [
+    { name: "Kaleb", teams: ["Dodgers", "Twins", "Brewers", "Marlins"] },
+    { name: "Clay", teams: ["Braves", "Astros", "Tigers", "Nationals"] },
+    { name: "Chris", teams: ["Phillies", "Mariners", "Royals", "A's"] },
+    { name: "Pat", teams: ["Rangers", "Cubs", "Blue Jays", "Pirates"] },
+    { name: "Tyler", teams: ["Mets", "Padres", "Guardians", "Cardinals"] },
+    { name: "Zack", teams: ["Orioles", "Yankees", "Rays", "Angels"] },
+    { name: "Terry", teams: ["Red Sox", "Diamondbacks", "Reds", "Giants"] }
+];
 
+// Map API team names to our format (same as script.js)
+function mapTeamName(apiName) {
+    const nameMap = {
+        "Los Angeles Dodgers": "Dodgers",
+        "Atlanta Braves": "Braves",
+        "Philadelphia Phillies": "Phillies",
+        "Texas Rangers": "Rangers",
+        "New York Mets": "Mets",
+        "Baltimore Orioles": "Orioles",
+        "Boston Red Sox": "Red Sox",
+        "Arizona Diamondbacks": "Diamondbacks",
+        "New York Yankees": "Yankees",
+        "San Diego Padres": "Padres",
+        "Chicago Cubs": "Cubs",
+        "Seattle Mariners": "Mariners",
+        "Houston Astros": "Astros",
+        "Minnesota Twins": "Twins",
+        "Milwaukee Brewers": "Brewers",
+        "Detroit Tigers": "Tigers",
+        "Kansas City Royals": "Royals",
+        "Toronto Blue Jays": "Blue Jays",
+        "Cleveland Guardians": "Guardians",
+        "Tampa Bay Rays": "Rays",
+        "Cincinnati Reds": "Reds",
+        "San Francisco Giants": "Giants",
+        "Los Angeles Angels": "Angels",
+        "St. Louis Cardinals": "Cardinals",
+        "Pittsburgh Pirates": "Pirates",
+        "Oakland Athletics": "A's",
+        "Washington Nationals": "Nationals",
+        "Miami Marlins": "Marlins"
+    };
+    return nameMap[apiName] || null;
+}
+
+// Fetch and save standings
 async function saveStandings() {
     try {
-        // Mock API (replace with proxy or local data)
+        // Fetch MLB data directly (no proxy needed, confirmed working)
         const response = await axios.get('https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025');
+        if (!response.data.records || !Array.isArray(response.data.records)) {
+            throw new Error('Invalid MLB API response');
+        }
+
+        // Process team data
         const teamData = {};
         response.data.records.forEach(division => {
-            division.teamRecords.forEach(team => {
-                const mappedName = mapTeamName(team.team.name);
-                if (mappedName) teamData[mappedName] = { wins: team.wins || 0, losses: team.losses || 0 };
-            });
+            if (division.teamRecords && Array.isArray(division.teamRecords)) {
+                division.teamRecords.forEach(team => {
+                    const mappedName = mapTeamName(team.team.name);
+                    if (mappedName) {
+                        teamData[mappedName] = { wins: team.wins || 0, losses: team.losses || 0 };
+                    }
+                });
+            }
         });
 
+        if (Object.keys(teamData).length === 0) {
+            throw new Error('No valid team data processed');
+        }
+
+        // Calculate player standings
         const standings = players.map(player => {
             let totalWins = 0, totalLosses = 0;
             player.teams.forEach(team => {
@@ -28,23 +86,31 @@ async function saveStandings() {
             return { name: player.name, wins: totalWins, losses: totalLosses, winPercentage };
         });
 
+        // Sort and rank
         standings.sort((a, b) => parseFloat(b.winPercentage) - parseFloat(a.winPercentage));
         const rankedStandings = standings.map((player, index) => ({
-            ...player,
+            name: player.name,
+            wins: player.wins,
+            losses: player.losses,
+            winPercentage: player.winPercentage,
             rank: index + 1
         }));
 
+        // Generate filename based on current date (e.g., standings-2025-04-13.json)
         const today = new Date();
-        const seasonStart = new Date('2025-03-27');
-        const weekNumber = Math.ceil((today - seasonStart) / (7 * 24 * 60 * 60 * 1000));
-        const weeklyFile = `standings-2025-week${weekNumber}.json`;
+        const year = today.getUTCFullYear();
+        const month = String(today.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(today.getUTCDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const weeklyFile = `standings-${dateStr}.json`;
 
+        // Save weekly standings and update previousStandings.json
         fs.writeFileSync(path.join(__dirname, weeklyFile), JSON.stringify(rankedStandings, null, 2));
         fs.writeFileSync(path.join(__dirname, 'previousStandings.json'), JSON.stringify(rankedStandings, null, 2));
 
         console.log(`Saved ${weeklyFile} and updated previousStandings.json`);
     } catch (error) {
-        console.error('Error saving standings:', error);
+        console.error('Error saving standings:', error.message);
         process.exit(1);
     }
 }
