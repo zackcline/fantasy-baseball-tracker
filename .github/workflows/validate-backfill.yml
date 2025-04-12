@@ -1,0 +1,30 @@
+# Workflow to validate backfilled standings files
+name: Validate Backfilled Standings
+
+# Triggers for the workflow
+on:
+  workflow_dispatch: # Manual trigger only
+
+# Jobs to execute
+jobs:
+  validate-backfill:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Run validate-backfill.js
+      - name: Validate backfilled standings
+        run: node validate-backfill.js
