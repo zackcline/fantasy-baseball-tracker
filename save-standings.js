@@ -2,6 +2,12 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
+// Ensure DailyStandings folder exists
+const dailyStandingsDir = path.join(__dirname, 'DailyStandings');
+if (!fs.existsSync(dailyStandingsDir)) {
+    fs.mkdirSync(dailyStandingsDir);
+}
+
 // Player data (same as script.js)
 const players = [
     { name: "Kaleb", teams: ["Dodgers", "Twins", "Brewers", "Marlins"] },
@@ -110,8 +116,8 @@ async function saveStandings() {
         const dailyFile = `standings-${dateStr}.json`;
 
         // Save daily standings
-        fs.writeFileSync(path.join(__dirname, dailyFile), JSON.stringify(rankedStandings, null, 2));
-        console.log(`Saved ${dailyFile}`);
+        fs.writeFileSync(path.join(dailyStandingsDir, dailyFile), JSON.stringify(rankedStandings, null, 2));
+        console.log(`Saved DailyStandings/${dailyFile}`);
 
         // Save previousStandings.json on Sundays
         if (today.getUTCDay() === 0) {
