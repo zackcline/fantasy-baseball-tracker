@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Kaleb",
+    "wins": 239,
+    "losses": 205,
+    "winPercentage": "0.538",
+    "rank": 1
+  },
+  {
+    "name": "Chris",
+    "wins": 179,
+    "losses": 157,
+    "winPercentage": "0.533",
+    "rank": 2
+  },
+  {
+    "name": "Tyler",
+    "wins": 237,
+    "losses": 211,
+    "winPercentage": "0.529",
+    "rank": 3
+  },
+  {
+    "name": "Pat",
+    "wins": 236,
+    "losses": 213,
+    "winPercentage": "0.526",
+    "rank": 4
+  },
+  {
+    "name": "Terry",
+    "wins": 229,
+    "losses": 220,
+    "winPercentage": "0.510",
+    "rank": 5
+  },
+  {
+    "name": "Zack",
+    "wins": 220,
+    "losses": 229,
+    "winPercentage": "0.490",
+    "rank": 6
+  },
+  {
+    "name": "Clay",
+    "wins": 218,
+    "losses": 228,
+    "winPercentage": "0.489",
+    "rank": 7
+  }
+]
